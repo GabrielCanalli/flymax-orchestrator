@@ -92,6 +92,8 @@ Full Gazebo + ROS 2 setup walkthrough in [`docs/setup-gazebo.md`](docs/setup-gaz
 | **4** | PX4 / Pixhawk backend; outdoor flight (India DGCA Digital Sky compliance) | Q4 2026 |
 | **5** | Swarm of 5+; foundation-model-conditioned policy (π0 / GR00T-style); cross-fleet handoff | 2027 |
 
+> Strategic context (stack, business model, hardware progression) lives in the private master roadmap — this repo is just Layer 1, the orchestrator.
+
 ## Hardware (Phase 2-3)
 
 | Item | Source | Approx | Why |

@@ -55,16 +55,23 @@ class Orchestrator:
         safety: SafetyConstraints | None = None,
     ) -> None:
         load_dotenv()
-        if anthropic_client is None:
+        # Build the Anthropic client lazily — only `plan()` needs it. Executing a
+        # pre-authored mission (`fly` on dryrun/gazebo/crazyflie) must work with no key.
+        self._client = anthropic_client
+        self.model = model
+        self.safety = safety or _default_safety()
+
+    @property
+    def client(self) -> Anthropic:
+        """The Anthropic client, constructed on first use. Raises only if planning is attempted without a key."""
+        if self._client is None:
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
                 raise RuntimeError(
                     "ANTHROPIC_API_KEY not set. Add to .env or environment before planning."
                 )
-            anthropic_client = Anthropic(api_key=api_key)
-        self.client = anthropic_client
-        self.model = model
-        self.safety = safety or _default_safety()
+            self._client = Anthropic(api_key=api_key)
+        return self._client
 
     # ----- Planning -----
 

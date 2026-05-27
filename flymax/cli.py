@@ -20,6 +20,12 @@ from rich.table import Table
 from .missions import Mission
 from .orchestrator import Orchestrator, load_mission
 
+# Windows consoles default to cp1252; rich emits unicode glyphs (✓, table borders).
+# Force UTF-8 so output doesn't crash with UnicodeEncodeError.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
+
 console = Console()
 
 
