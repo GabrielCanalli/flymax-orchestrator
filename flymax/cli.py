@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .missions import Mission
+from .missions.schema import export_json_schema
 from .orchestrator import Orchestrator, load_mission
 
 # Windows consoles default to cp1252; rich emits unicode glyphs (✓, table borders).
@@ -85,6 +86,24 @@ def fly(mission_path: Path, backend: str) -> None:
             )
 
     asyncio.run(_run())
+
+
+@main.command()
+@click.option("--out", "out_path", type=click.Path(path_type=Path),
+              help="Write the canonical Mission JSON Schema here (e.g. schema/mission.schema.json).")
+def schema(out_path: Path | None) -> None:
+    """Emit the canonical Mission JSON Schema — the single structural contract.
+
+    Downstream consumers (the website's TypeScript types, the planner's Anthropic
+    tool) regenerate from this one file so they can never silently drift.
+    """
+    doc = json.dumps(export_json_schema(), indent=2)
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(doc + "\n", encoding="utf-8")
+        console.print(f"[green]✓[/green] Wrote {out_path}")
+    else:
+        console.print_json(doc)
 
 
 def _print_mission(m: Mission) -> None:

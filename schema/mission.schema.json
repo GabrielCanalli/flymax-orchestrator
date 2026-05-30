@@ -1,0 +1,252 @@
+{
+  "$defs": {
+    "Drone": {
+      "description": "One drone in the fleet, with a stable id.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "callsign": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Callsign"
+        },
+        "backend_uri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend Uri"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Drone",
+      "type": "object"
+    },
+    "Formation": {
+      "description": "Multi-drone geometric arrangements.",
+      "enum": [
+        "solo",
+        "line",
+        "v",
+        "diamond",
+        "grid"
+      ],
+      "title": "Formation",
+      "type": "string"
+    },
+    "Frame": {
+      "description": "Coordinate frame for a Waypoint.",
+      "enum": [
+        "local",
+        "global"
+      ],
+      "title": "Frame",
+      "type": "string"
+    },
+    "Leg": {
+      "description": "One segment of a mission \u2014 a sequence of waypoints, possibly for many drones.",
+      "properties": {
+        "drone_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Drone Ids",
+          "type": "array"
+        },
+        "waypoints": {
+          "items": {
+            "$ref": "#/$defs/Waypoint"
+          },
+          "title": "Waypoints",
+          "type": "array"
+        },
+        "formation": {
+          "$ref": "#/$defs/Formation",
+          "default": "solo"
+        },
+        "timeout_s": {
+          "default": 60.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "on_failure": {
+          "default": "rtl",
+          "enum": [
+            "abort",
+            "rtl",
+            "land",
+            "hover"
+          ],
+          "title": "On Failure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "drone_ids",
+        "waypoints"
+      ],
+      "title": "Leg",
+      "type": "object"
+    },
+    "SafetyConstraints": {
+      "description": "Hard limits the orchestrator and backends must enforce.",
+      "properties": {
+        "max_altitude_m": {
+          "default": 2.0,
+          "title": "Max Altitude M",
+          "type": "number"
+        },
+        "geofence_min": {
+          "$ref": "#/$defs/Vec3"
+        },
+        "geofence_max": {
+          "$ref": "#/$defs/Vec3"
+        },
+        "max_speed_mps": {
+          "default": 1.0,
+          "title": "Max Speed Mps",
+          "type": "number"
+        },
+        "low_battery_pct": {
+          "default": 25.0,
+          "title": "Low Battery Pct",
+          "type": "number"
+        },
+        "emergency_land_keyword": {
+          "default": "ABORT",
+          "title": "Emergency Land Keyword",
+          "type": "string"
+        }
+      },
+      "title": "SafetyConstraints",
+      "type": "object"
+    },
+    "Vec3": {
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "z": {
+          "title": "Z",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "title": "Vec3",
+      "type": "object"
+    },
+    "Waypoint": {
+      "description": "Single point in space the drone must visit.",
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/Vec3"
+        },
+        "frame": {
+          "$ref": "#/$defs/Frame",
+          "default": "local"
+        },
+        "yaw_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yaw Deg"
+        },
+        "hold_s": {
+          "default": 0.0,
+          "title": "Hold S",
+          "type": "number"
+        },
+        "speed_mps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speed Mps"
+        }
+      },
+      "required": [
+        "position"
+      ],
+      "title": "Waypoint",
+      "type": "object"
+    }
+  },
+  "description": "A complete flight plan, decomposed by the orchestrator from a natural-language goal.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "fleet": {
+      "items": {
+        "$ref": "#/$defs/Drone"
+      },
+      "title": "Fleet",
+      "type": "array"
+    },
+    "legs": {
+      "items": {
+        "$ref": "#/$defs/Leg"
+      },
+      "title": "Legs",
+      "type": "array"
+    },
+    "safety": {
+      "$ref": "#/$defs/SafetyConstraints"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "name",
+    "fleet",
+    "legs",
+    "safety"
+  ],
+  "title": "Mission",
+  "type": "object"
+}

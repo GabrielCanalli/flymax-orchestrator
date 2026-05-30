@@ -1,12 +1,24 @@
-"""Skills — reusable planning fragments the orchestrator can pull into a prompt.
+"""Skills — focused units of planning/checking logic the orchestrator applies to a Mission.
 
-A skill is a small markdown file plus optional Python helpers. The orchestrator
-selects relevant skills based on the operator's goal (Phase 2). Phase 1 has no
-skill selection — the planning prompt is monolithic.
+A skill is a small Python object satisfying the Skill protocol (see base.py).
+Checking skills (geofence) fail closed; planning skills (formation, survey, rth —
+Phase 2+) emit waypoints deterministically off the LLM path.
 
-Examples of future skills:
-  - indoor_safe_envelope.md — adds geofence and altitude defaults for indoor flight
-  - line_formation.md — geometry helpers for line/V/diamond formations
-  - rtl_recovery.md — return-to-launch trajectory generation
-  - dgca_outdoor_check.md — India DGCA Digital Sky pre-flight check
+The orchestrator selects relevant skills by the operator's goal (Phase 2). Today
+the geofence check is wired as a hard pre-arm gate in Orchestrator.fly().
+
+Copy flymax/skills/geofence.py as the worked reference when adding a skill.
 """
+
+from __future__ import annotations
+
+from .base import Skill, SkillResult, UnsafeMissionError, Violation
+from .geofence import GeofenceSkill
+
+__all__ = [
+    "Skill",
+    "SkillResult",
+    "Violation",
+    "UnsafeMissionError",
+    "GeofenceSkill",
+]
