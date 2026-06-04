@@ -1,0 +1,33 @@
+{
+  "name": "recce-v-formation",
+  "description": "Three drones patrol a 30x30m box in V formation at 25m. Squad-recce template. Formation offsets via skills.formation.formation_offsets.",
+  "fleet": [
+    { "id": "hex01", "callsign": "Recce-Lead" },
+    { "id": "hex02", "callsign": "Recce-2" },
+    { "id": "hex03", "callsign": "Recce-3" }
+  ],
+  "legs": [
+    {
+      "drone_ids": ["hex01", "hex02", "hex03"],
+      "formation": "v",
+      "timeout_s": 240.0,
+      "on_failure": "rtl",
+      "waypoints": [
+        { "position": { "x": 0.0, "y": 0.0, "z": 25.0 }, "speed_mps": 6.0 },
+        { "position": { "x": 30.0, "y": 0.0, "z": 25.0 }, "speed_mps": 6.0 },
+        { "position": { "x": 30.0, "y": 30.0, "z": 25.0 }, "speed_mps": 6.0 },
+        { "position": { "x": 0.0, "y": 30.0, "z": 25.0 }, "speed_mps": 6.0 },
+        { "position": { "x": 0.0, "y": 0.0, "z": 25.0 }, "speed_mps": 6.0 }
+      ]
+    }
+  ],
+  "safety": {
+    "max_altitude_m": 30.0,
+    "geofence_min": { "x": -10.0, "y": -10.0, "z": 0.0 },
+    "geofence_max": { "x": 40.0, "y": 40.0, "z": 30.0 },
+    "max_speed_mps": 10.0,
+    "low_battery_pct": 25.0,
+    "emergency_land_keyword": "ABORT"
+  },
+  "metadata": { "use_case": "defence-recce", "outdoor": true, "skill": "formation.v" }
+}

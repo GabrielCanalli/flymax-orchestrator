@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 
 from .backends import Backend, get_backend
 from .missions import Mission, SafetyConstraints, TelemetryEvent
+from .missions.schema import export_json_schema
+from .skills import GeofenceSkill
 
 logger = structlog.get_logger(__name__)
 
@@ -29,7 +31,7 @@ You are FlyMax-Planner, a flight-planning subagent. You take a short
 natural-language mission goal and emit a strictly-typed Mission JSON object.
 
 Hard rules:
-  1. ONLY emit JSON conforming to the provided Mission schema. No prose. No code fences.
+  1. Always answer by CALLING the submit_mission tool. Never reply with prose.
   2. NEVER exceed Mission.safety.max_altitude_m or Mission.safety.geofence_*.
   3. NEVER plan outdoor missions unless mission_context.outdoor is true.
   4. Default to indoor 2m cube safety constraints if the operator doesn't say otherwise.
@@ -76,38 +78,44 @@ class Orchestrator:
     # ----- Planning -----
 
     def plan(self, goal: str, context: dict | None = None) -> Mission:
-        """Turn a natural-language goal into a Mission via Claude.
+        """Turn a natural-language goal into a typed Mission via Claude tool-use.
 
-        Phase 1: single-shot, no multi-turn reasoning. Pydantic validation gives us
-        the guardrail — anything Claude returns that doesn't parse is rejected,
-        the operator retries with a clearer prompt.
+        The model is FORCED to call submit_mission, whose input_schema is the
+        canonical Mission JSON Schema. It cannot emit prose or malformed JSON —
+        the only legal output is a Mission-shaped tool call, which Pydantic then
+        validates. The geofence skill re-checks the result host-side at dispatch
+        (see fly); the planner's output is never trusted to be safe.
         """
         ctx = context or {}
         user_content = (
             f"Operator goal:\n{goal}\n\n"
             f"Context:\n{json.dumps(ctx, indent=2)}\n\n"
-            f"Default safety:\n{self.safety.model_dump_json(indent=2)}\n\n"
-            f"Return ONLY a Mission JSON object matching the schema."
+            f"Default safety:\n{self.safety.model_dump_json(indent=2)}"
         )
         logger.info("orchestrator.plan.start", goal=goal, model=self.model)
 
-        # Phase 1 keeps this simple: ask for JSON, parse it, validate.
-        # Phase 2 will switch to tool-use with the Mission schema as the tool input
-        # for harder constraint enforcement.
         msg = self.client.messages.create(
             model=self.model,
             max_tokens=4096,
-            system=SYSTEM_PROMPT + "\n\nMission schema (Pydantic):\n" + _mission_schema_hint(),
+            system=SYSTEM_PROMPT,
+            tools=[_mission_tool()],
+            tool_choice={"type": "tool", "name": "submit_mission"},
             messages=[{"role": "user", "content": user_content}],
         )
-        text = "".join(b.text for b in msg.content if hasattr(b, "text"))
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            logger.error("orchestrator.plan.json_error", text=text[:500])
-            raise ValueError(f"Claude did not return parseable JSON: {e}") from e
+        block = next(
+            (
+                b
+                for b in msg.content
+                if getattr(b, "type", None) == "tool_use"
+                and getattr(b, "name", None) == "submit_mission"
+            ),
+            None,
+        )
+        if block is None:
+            logger.error("orchestrator.plan.no_tool_use")
+            raise ValueError("Claude did not return a submit_mission tool call")
 
-        mission = Mission.model_validate(data)
+        mission = Mission.model_validate(block.input)
         logger.info(
             "orchestrator.plan.ok",
             name=mission.name,
@@ -119,7 +127,13 @@ class Orchestrator:
     # ----- Execution -----
 
     async def fly(self, mission: Mission, backend_name: str) -> AsyncIterator[TelemetryEvent]:
-        """Dispatch a mission to a backend. Streams telemetry until completion or abort."""
+        """Dispatch a mission to a backend. Streams telemetry until completion or abort.
+
+        A host-side geofence check runs BEFORE any backend is reached — the
+        never-arm-without-a-safe-plan invariant. Fails closed: an out-of-envelope
+        mission raises UnsafeMissionError and no backend ever sees it.
+        """
+        GeofenceSkill().enforce(mission)
         backend: Backend = get_backend(backend_name)
         logger.info("orchestrator.fly.start", backend=backend.name, mission=mission.name)
         await backend.connect(mission)
@@ -137,21 +151,20 @@ def load_mission(path: Path | str) -> Mission:
     return Mission.model_validate_json(p.read_text(encoding="utf-8"))
 
 
-def _mission_schema_hint() -> str:
-    """Compact schema hint to feed Claude alongside the system prompt.
+def _mission_tool() -> dict:
+    """The Anthropic tool the planner is forced to call.
 
-    Kept terse — full schema is too verbose for every planning call. We rely on
-    Pydantic validation on the way back to catch anything malformed.
+    Its input_schema IS the canonical Mission JSON Schema, so the model can only
+    produce a Mission-shaped object — no prose, no fences, no drift from the
+    Pydantic source of truth.
     """
-    return (
-        "Mission fields: name (str), description (str), fleet (list[Drone]), "
-        "legs (list[Leg]), safety (SafetyConstraints), metadata (dict).\n"
-        "Drone: id (str), callsign (str|null), backend_uri (str|null).\n"
-        "Leg: drone_ids (list[str]), waypoints (list[Waypoint]), "
-        "formation ('solo'|'line'|'v'|'diamond'|'grid'), timeout_s (float), "
-        "on_failure ('abort'|'rtl'|'land'|'hover').\n"
-        "Waypoint: position {x,y,z}, frame ('local'|'global'), yaw_deg (float|null), "
-        "hold_s (float), speed_mps (float|null).\n"
-        "SafetyConstraints: max_altitude_m, geofence_min {x,y,z}, geofence_max {x,y,z}, "
-        "max_speed_mps, low_battery_pct, emergency_land_keyword."
-    )
+    return {
+        "name": "submit_mission",
+        "description": (
+            "Emit the typed FlyMax Mission that satisfies the operator's goal. "
+            "Coordinates are metres in the local ENU frame (x east, y north, z up) "
+            "unless the context marks the mission outdoor. Stay within the provided "
+            "safety constraints; a waypoint outside them will be rejected before arming."
+        ),
+        "input_schema": export_json_schema(),
+    }

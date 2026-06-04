@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flymax-orchestrator"
 version = "0.1.0a0"
-description = "Claude-powered orchestrator for drone swarms. One sentence in. A formation flies."
+description = "An open autonomy layer for drones: one mission file, swappable backends (dry-run, Gazebo/PX4-SITL, hardware later)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"

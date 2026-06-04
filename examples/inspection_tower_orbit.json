@@ -1,0 +1,35 @@
+{
+  "name": "inspection-tower-orbit",
+  "description": "One drone orbits a structure at (20,20) at radius 8m, altitude 20m — wind turbine / transmission tower / chimney inspection pass. DaaS template.",
+  "fleet": [
+    { "id": "px01", "callsign": "Inspect-1" }
+  ],
+  "legs": [
+    {
+      "drone_ids": ["px01"],
+      "formation": "solo",
+      "timeout_s": 180.0,
+      "on_failure": "rtl",
+      "waypoints": [
+        { "position": { "x": 28.0, "y": 20.0, "z": 20.0 }, "yaw_deg": 180.0, "speed_mps": 3.0 },
+        { "position": { "x": 25.66, "y": 25.66, "z": 20.0 }, "yaw_deg": 225.0, "speed_mps": 3.0 },
+        { "position": { "x": 20.0, "y": 28.0, "z": 20.0 }, "yaw_deg": 270.0, "speed_mps": 3.0 },
+        { "position": { "x": 14.34, "y": 25.66, "z": 20.0 }, "yaw_deg": 315.0, "speed_mps": 3.0 },
+        { "position": { "x": 12.0, "y": 20.0, "z": 20.0 }, "yaw_deg": 0.0, "speed_mps": 3.0 },
+        { "position": { "x": 14.34, "y": 14.34, "z": 20.0 }, "yaw_deg": 45.0, "speed_mps": 3.0 },
+        { "position": { "x": 20.0, "y": 12.0, "z": 20.0 }, "yaw_deg": 90.0, "speed_mps": 3.0 },
+        { "position": { "x": 25.66, "y": 14.34, "z": 20.0 }, "yaw_deg": 135.0, "speed_mps": 3.0 },
+        { "position": { "x": 28.0, "y": 20.0, "z": 20.0 }, "yaw_deg": 180.0, "speed_mps": 3.0 }
+      ]
+    }
+  ],
+  "safety": {
+    "max_altitude_m": 30.0,
+    "geofence_min": { "x": 0.0, "y": 0.0, "z": 0.0 },
+    "geofence_max": { "x": 40.0, "y": 40.0, "z": 30.0 },
+    "max_speed_mps": 6.0,
+    "low_battery_pct": 30.0,
+    "emergency_land_keyword": "ABORT"
+  },
+  "metadata": { "use_case": "inspection", "outdoor": true, "orbit_center": [20, 20], "orbit_radius_m": 8 }
+}

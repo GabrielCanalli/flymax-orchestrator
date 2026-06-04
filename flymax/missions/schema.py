@@ -100,3 +100,14 @@ class TelemetryEvent(BaseModel):
     state: Literal["idle", "armed", "flying", "hovering", "landing", "landed", "emergency"]
     leg_id: str | None = None
     message: str | None = None
+
+
+def export_json_schema() -> dict:
+    """The canonical Mission JSON Schema.
+
+    This is the single structural contract. It feeds the Anthropic tool the
+    planner forces (orchestrator.plan), and the TypeScript types the website's
+    /sim ports. `flymax schema --out schema/mission.schema.json` writes it to disk
+    so downstream consumers can regenerate from one source and never drift.
+    """
+    return Mission.model_json_schema()

@@ -1,0 +1,33 @@
+{
+  "name": "guardian-perch-watch",
+  "description": "Personal Guardian Drone (flagship): perch near the operator, wake, rise to a 6m watch, sweep a short look, return to perch. Sub-250g indoor envelope.",
+  "fleet": [
+    { "id": "cf01", "callsign": "Guardian" }
+  ],
+  "legs": [
+    {
+      "drone_ids": ["cf01"],
+      "formation": "solo",
+      "timeout_s": 90.0,
+      "on_failure": "land",
+      "waypoints": [
+        { "position": { "x": 0.0, "y": 0.0, "z": 0.3 }, "hold_s": 0.5, "speed_mps": 1.0 },
+        { "position": { "x": 0.0, "y": 0.0, "z": 6.0 }, "hold_s": 1.0, "speed_mps": 1.5 },
+        { "position": { "x": 4.0, "y": 0.0, "z": 6.0 }, "yaw_deg": 90.0, "hold_s": 0.5, "speed_mps": 2.0 },
+        { "position": { "x": 0.0, "y": 4.0, "z": 6.0 }, "yaw_deg": 180.0, "hold_s": 0.5, "speed_mps": 2.0 },
+        { "position": { "x": -4.0, "y": 0.0, "z": 6.0 }, "yaw_deg": 270.0, "hold_s": 0.5, "speed_mps": 2.0 },
+        { "position": { "x": 0.0, "y": 0.0, "z": 6.0 }, "hold_s": 0.5, "speed_mps": 2.0 },
+        { "position": { "x": 0.0, "y": 0.0, "z": 0.3 }, "hold_s": 0.5, "speed_mps": 1.0 }
+      ]
+    }
+  ],
+  "safety": {
+    "max_altitude_m": 8.0,
+    "geofence_min": { "x": -8.0, "y": -8.0, "z": 0.0 },
+    "geofence_max": { "x": 8.0, "y": 8.0, "z": 8.0 },
+    "max_speed_mps": 3.0,
+    "low_battery_pct": 30.0,
+    "emergency_land_keyword": "ABORT"
+  },
+  "metadata": { "use_case": "personal-guardian", "flagship": true, "indoor": true }
+}
