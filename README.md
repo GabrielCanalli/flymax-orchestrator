@@ -1,135 +1,106 @@
 # FlyMax Orchestrator
 
-> A Claude-powered orchestrator for drone swarms. One sentence in. A formation flies.
+> An open autonomy layer for drones. You describe a mission; it plans the flight and runs it through a backend — a dry-run logger, a Gazebo/PX4 simulator, real hardware later. The same mission file flies in all three.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)](#roadmap)
+[![Status: early](https://img.shields.io/badge/status-early-orange)](#status--honesty)
 
-## What this is
+## What this actually is
 
-A high-level command layer for autonomous drone fleets. You type a goal in English. A reasoning model (Anthropic's Claude) decomposes it into a flight plan (waypoints, formations, contingencies), dispatches the legs to one or many drones, and watches the kanban for completion.
+A mission is a JSON file — waypoints, formations, limits. The orchestrator validates it against a typed schema, runs a host-side geofence check, then hands it to a **backend** that executes it and streams telemetry back. The orchestrator never knows which backend is on the other end, so the same mission you dry-run on a laptop is the one that flies in the simulator, and (later) the one that flies a real airframe.
 
-> 🛰️ **See it work right now: [flymax.getmaxglobal.com/sim](https://flymax.getmaxglobal.com/sim)** — type a mission, watch 3 drones fly it in a browser. The same `MissionPlan` schema you'll see in this repo.
+It's solo-built and early. The sections below are split honestly into *what runs today* and *what's still a plan*, because I'd rather you know which is which before you clone.
 
-The drones themselves stay dumb — they speak [Crazyflie Python API (cflib)](https://github.com/bitcraze/crazyflie-lib-python) and/or [PX4 + MAVLink](https://docs.px4.io/) over MAVSDK. The smart layer is portable: same orchestrator, swap the backend, simulate first, fly later.
+## What works today (verifiable in this repo)
 
-## Why
+- **`dryrun` backend** — flies any mission with no hardware and no API key. Logs every waypoint as a telemetry event. Try it in 2 minutes (below).
+- **`gazebo` / PX4-SITL backend** — the brain arms, takes off, flies a square, returns to launch and lands an x500 quad in Gazebo Harmonic over MAVLink. Needs a sim stack (WSL2 + PX4 + Gazebo); setup is involved but real.
+- **Six pre-authored missions** in [`examples/`](examples/) — patrol, agri survey, tower-orbit inspection, V-formation recce, perch-and-watch, and a swarm light-show. Each has a matching telemetry log under `flight_logs/` in the companion workspace.
+- **A typed mission schema** ([`flymax/missions/schema.py`](flymax/missions/schema.py)) with geofence limits that are enforced *before* a backend is ever reached — an unsafe mission raises `UnsafeMissionError` and nothing flies.
 
-The hard problem in drone fleets isn't flight controllers — those are solved. It's the **delegation, memory, and telemetry substrate**: who decides what each drone does, how a mission gets decomposed, how failure cascades back up the chain, how the operator sees the floor.
+## What's a plan, not a fact (yet)
 
-That substrate looks suspiciously identical to the one that runs a fleet of AI agents in a SaaS product. We're building it once and using it for both.
+- **Natural-language → mission** ("type a goal in English, get a flight plan"). The schema and dispatch are real; the Claude decomposition step is wired but not the thing I'd demo. Pre-authored missions are what fly reliably right now.
+- **`crazyflie` backend** — stubbed. It raises `NotImplementedError` on purpose until hardware is in hand.
+- **Real outdoor flight** — gated on a DGCA Digital Sky registration and a confirmed reason to spend on hardware. Not started.
 
-> **Dual-use, by design.** The orchestrator in this repo is the same shape as the one running our healthcare RCM agents at [getmaxglobal.com](https://getmaxglobal.com). Different effectors, same brain.
+> If a claim isn't in the "works today" list, treat it as intent.
+
+## Why build it
+
+The hard part of a drone fleet isn't the flight controller — PX4 and ArduPilot solved that. It's the layer above: who decides what each drone does, how a goal gets decomposed into legs, how a failure cascades back up, how an operator sees the floor. That delegation-and-telemetry substrate is nearly identical to the one that runs a fleet of software agents — which is the other thing I build (healthcare RCM agents at [getmaxglobal.com](https://getmaxglobal.com)). Same brain, different effectors. So it gets built once.
+
+The code is open because the moat isn't the orchestrator — it's the flight data and the missions that accumulate on top of it.
 
 ## Design principles
 
-1. **Sim before silicon.** Every mission runs in Gazebo (or Isaac Sim later) before any prop spins.
-2. **Backend-agnostic.** Crazyflie 2.1+ today, PX4 / Pixhawk later, Anduril SDK if it ever opens up.
-3. **No closed clouds in the loop.** Sensitive missions stay on-prem or on a private GPU host. Cloud LLM call is optional and replaceable.
-4. **Auditable.** Every decision the orchestrator makes (decomposition, dispatch, recovery) is logged with reasoning. We're not building a black box.
-5. **Hard kill, always.** Big red button in the CLI. Big red button in the web UI when there is one. Big red button in the controller pairing.
+1. **Sim before silicon.** Every mission runs in a simulator before a prop spins.
+2. **Backend-agnostic.** One mission schema; swap dryrun ↔ gazebo ↔ hardware underneath.
+3. **No closed cloud in the loop by default.** The LLM call is optional and replaceable; missions can run with no key at all.
+4. **Auditable.** Every decision is logged. Not a black box.
+5. **Hard kill, always.** A stop path in the CLI and in any UI.
 
 ## Architecture
 
 ```
-                  ┌────────────────────────────────────┐
-                  │  Operator (CLI / web UI / voice)   │
-                  └────────────────┬───────────────────┘
-                                   │ natural-language goal
-                                   ▼
-                  ┌────────────────────────────────────┐
-                  │  Orchestrator (Claude + skills)    │
-                  │   - decompose                      │
-                  │   - dispatch                       │
-                  │   - watch + nudge                  │
-                  └────────────────┬───────────────────┘
-                                   │ MissionPlan (typed)
-                                   ▼
-            ┌──────────────────────┴──────────────────────┐
-            │                                             │
-            ▼                                             ▼
-   ┌────────────────┐                          ┌────────────────┐
-   │  Backend: Sim  │                          │  Backend: HW   │
-   │  (Gazebo +     │ ◀── shared mission ──▶  │  (Crazyflie,   │
-   │   crazyflie-   │      schema, same        │   PX4 later)   │
-   │   simulation)  │      orchestrator        │                │
-   └────────────────┘                          └────────────────┘
+        Operator (CLI / web / voice)
+                  │  goal or mission file
+                  ▼
+        Orchestrator  ──  geofence check (host-side, pre-backend)
+                  │  typed Mission
+                  ▼
+     ┌────────────┼────────────┐
+     ▼            ▼            ▼
+  dryrun       gazebo      hardware
+ (no hw)      (PX4 SITL)   (later)
 ```
 
-A mission is JSON. Same JSON flies in sim and on hardware. The orchestrator never knows which backend it's talking to.
+Same JSON, every backend. The orchestrator doesn't know which one it's talking to.
 
-## Quickstart (Phase 1 — sim only)
-
-> Hardware (Crazyflie) lands in Phase 2 once units ship. Phase 1 is sim-only and free.
+## Quickstart — 2 minutes, no hardware, no key
 
 ```bash
-# 1. clone
 git clone https://github.com/jakesparow/flymax-orchestrator.git
 cd flymax-orchestrator
+pip install -e .
 
-# 2. install (Python 3.11+)
-pip install -e ".[sim]"
-
-# 3. set your Anthropic key
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
-
-# 4. dry-run an example mission (no sim required)
-flymax plan --mission examples/two_drone_patrol.json --dry-run
-
-# 5. launch the sim (requires WSL2 Ubuntu 22.04 + ROS 2 Humble + Gazebo Harmonic)
-flymax fly --mission examples/two_drone_patrol.json --backend gazebo
+# fly a pre-authored mission with the dry-run backend
+flymax fly --mission examples/two_drone_patrol.json --backend dryrun
 ```
 
-Full Gazebo + ROS 2 setup walkthrough in [`docs/setup-gazebo.md`](docs/setup-gazebo.md).
+You'll see each waypoint stream past as a telemetry event. That's the whole loop, minus the radio.
+
+To fly the same mission in the simulator (`--backend gazebo`), you need WSL2 + PX4-SITL + Gazebo Harmonic. The walkthrough is in [`docs/setup-gazebo.md`](docs/setup-gazebo.md). It's not a 2-minute job — budget an afternoon.
 
 ## Roadmap
 
-| Phase | Outcome | ETA |
+| Phase | Outcome | State |
 |---|---|---|
-| **0** | Repo + skeleton + mission schema (this commit) | done |
-| **1** | Sim-only: 1 drone flies a 4-waypoint Claude-generated mission in Gazebo | +30 days |
-| **2** | Real Crazyflie 2.1+ flies the same mission via `--backend crazyflie` | +60 days |
-| **3** | 2 drones in formation; ESP32-CAM visual trigger; first public demo video | +90 days |
-| **4** | PX4 / Pixhawk backend; outdoor flight (India DGCA Digital Sky compliance) | Q4 2026 |
-| **5** | Swarm of 5+; foundation-model-conditioned policy (π0 / GR00T-style); cross-fleet handoff | 2027 |
+| 0 | Repo, mission schema, dryrun backend | ✅ done |
+| 1 | One drone flies a mission in Gazebo/PX4-SITL | ✅ working (square mission, RTL, land) |
+| 2 | Multi-drone in sim; NL decomposition is demo-grade | 🔜 in progress |
+| 3 | Real airframe flies the same mission via a hardware backend | ⏸ gated on a confirmed buyer + DGCA |
+| 4 | Outdoor / GPS missions, compliance | ⏸ later |
 
-> Strategic context (stack, business model, hardware progression) lives in the private master roadmap — this repo is just Layer 1, the orchestrator.
+I'm not putting dates on phases 3–4 because they depend on talking to real operators first, not on me writing more code.
 
-## Hardware (Phase 2-3)
+## Non-goals (on purpose)
 
-| Item | Source | Approx | Why |
-|---|---|---|---|
-| Crazyflie 2.1+ Bundle | MG Super Labs India / Bitcraze | ₹35,000 | Indoor, lightweight, no DGCA permit |
-| Crazyradio 2.0 | Same | included | USB radio link |
-| Flow Deck v2 | Same | included | Optical-flow + ToF — onboard positioning without an external system |
-| Lighthouse Deck (optional, later) | Bitcraze | ₹15,000 | Cm-accurate positioning for tight formations |
-| ESP32-CAM | robu.in | ₹500 | Visual trigger / external eye for Phase 3 |
-| Lab desk + 1m × 1m × 1m safe-flight cube | (you provide) | — | Indoor envelope for 90% of testing |
+- Not building another flight controller — PX4 / ArduPilot are excellent.
+- Not building another SLAM stack.
+- Not selling drones. The drone is the commodity; the orchestrator and the missions on top are the point.
 
-Outdoor / GPS missions wait for the PX4 backend (Phase 4) and a DGCA Digital Sky registration.
+## Prior art worth reading
 
-## Non-goals (intentional)
-
-- We are not building yet another flight controller. PX4 + ArduPilot are excellent.
-- We are not building yet another SLAM stack. ETH Zurich + Bitcraze own this lane.
-- We are not selling drones. We sell (eventually) the orchestrator and the skills/missions library on top.
-
-## Inspiration / prior art
-
-- [UZH Robotics & Perception Group](https://rpg.ifi.uzh.ch/) — Scaramuzza's group on agile flight and drone racing. Read [Champion-level drone racing using deep RL (Nature 2023)](https://www.nature.com/articles/s41586-023-06419-4).
+- [UZH Robotics & Perception Group](https://rpg.ifi.uzh.ch/) — agile flight, drone racing. ([Champion-level drone racing, Nature 2023](https://www.nature.com/articles/s41586-023-06419-4)).
 - [Bitcraze Crazyswarm2](https://imrclab.github.io/crazyswarm2/) — the canonical multi-Crazyflie stack on ROS 2.
-- [Skydio / Anduril autonomy](https://www.anduril.com/) — closed but the watermark for what "smart drones" can look like.
-- [Hermes War Room (Naroh091)](https://github.com/Naroh091/hermes-war-room) — the visual metaphor for an operator floor watching agentic workers.
+- [PX4 Autopilot](https://px4.io/) — the flight stack this project simulates against.
+
+## Status & honesty
+
+Early. Solo-built by [Sriram Raghavan](mailto:sriram@getmaxrcm.com). The dryrun and Gazebo paths are real and you can run them; most of the rest is a plan I'm being upfront about. Criticism, "have you considered…", and "this claim is overstated" are all genuinely welcome — open an issue.
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## Status
-
-Pre-alpha. Author: [Sriram Raghavan](mailto:sriram@getmaxrcm.com). This is the early skeleton. Contributions, criticism, and "have you considered…" emails are all welcome.
-
-## A note on the name
-
-FlyMax was a side conversation that people thought was a joke. It's not.
