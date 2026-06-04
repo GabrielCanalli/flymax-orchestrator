@@ -43,7 +43,7 @@ We tag five tracks:
 | `community` | Docs, examples, contributor experience |
 | `good first issue` | Curated entry points for first PRs |
 
-Open the [Issues tab](https://github.com/jakesparow/flymax-orchestrator/issues) and pick one labelled `good first issue`.
+Open the [Issues tab](https://github.com/jakesparow/flymax-orchestrator/issues?q=label%3A%22good-first-issue%22) and pick one labelled `good-first-issue`.
 
 ## Architecture in 60 seconds
 
@@ -99,6 +99,18 @@ Skills sit between the operator goal and the dispatcher. They run pre-arm (Geofe
 - Tests for new code; if it's a bugfix, include the failing-before-fix test.
 - Update `README.md` and any docs you change.
 - Note the issue you're closing in the PR body.
+
+## Getting your PR merged
+
+1. **Fork** the repo and clone locally.
+2. **Branch:** `git checkout -b feat/your-feature-name` (use `feat:`, `fix:`, `docs:`, `test:` prefixes).
+3. **Code:** Follow the style guide above. Add tests for new code.
+4. **Push:** `git push origin feat/your-feature-name`
+5. **PR:** Open a pull request. **Include the issue number in the body** (e.g., `Closes #15`).
+6. **Review:** Sriram or a maintainer will review within 2 days.
+7. **Merged:** Your commit is co-authored on the public MIT repo.
+
+Questions? Open a [Discussion](https://github.com/jakesparow/flymax-orchestrator/discussions) or email sriram@getmaxrcm.com.
 
 ## Hardware safety
 
