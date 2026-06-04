@@ -14,6 +14,8 @@ It's solo-built and early. The sections below are split honestly into *what runs
 
 ## What works today (verifiable in this repo)
 
+> **See a mission fly in your browser:** [flymax.getmaxglobal.com/sim](https://flymax.getmaxglobal.com/sim) — a visual demo (separate renderer, not this repo's code), but it runs the same `Mission` shape you'll find in `examples/`.
+
 - **`dryrun` backend** — flies any mission with no hardware and no API key. Logs every waypoint as a telemetry event. Try it in 2 minutes (below).
 - **`gazebo` / PX4-SITL backend** — the brain arms, takes off, flies a square, returns to launch and lands an x500 quad in Gazebo Harmonic over MAVLink. Needs a sim stack (WSL2 + PX4 + Gazebo); setup is involved but real.
 - **Six pre-authored missions** in [`examples/`](examples/) — patrol, agri survey, tower-orbit inspection, V-formation recce, perch-and-watch, and a swarm light-show. Each has a matching telemetry log under `flight_logs/` in the companion workspace.
