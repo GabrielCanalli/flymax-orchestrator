@@ -13,6 +13,7 @@ import json
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+import asyncio
 
 import structlog
 from anthropic import Anthropic
@@ -22,6 +23,7 @@ from .backends import Backend, get_backend
 from .missions import Mission, SafetyConstraints, TelemetryEvent
 from .missions.schema import export_json_schema
 from .skills import GeofenceSkill
+from flymax.bridge import BrowserBridge
 
 logger = structlog.get_logger(__name__)
 
@@ -57,11 +59,20 @@ class Orchestrator:
         safety: SafetyConstraints | None = None,
     ) -> None:
         load_dotenv()
-        # Build the Anthropic client lazily — only `plan()` needs it. Executing a
-        # pre-authored mission (`fly` on dryrun/gazebo/crazyflie) must work with no key.
+        # # Build the Anthropic client lazily - only `plan()` needs it. Executing a
+        # # pre-authored mission (`fly` on dryrun/gazebo/crazyflie) must work with no key.
         self._client = anthropic_client
         self.model = model
         self.safety = safety or _default_safety()
+
+        # --- Add WebSocket Bridge initialization ---
+        self.bridge = BrowserBridge()
+        self.bridge.on_mission_received = self.handle_incoming_mission
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.bridge.start())
+        except RuntimeError:
+            asyncio.ensure_future(self.bridge.start())
 
     @property
     def client(self) -> Anthropic:
@@ -127,29 +138,33 @@ class Orchestrator:
     # ----- Execution -----
 
     async def fly(self, mission: Mission, backend_name: str) -> AsyncIterator[TelemetryEvent]:
-        """Dispatch a mission to a backend. Streams telemetry until completion or abort.
+            """Dispatch a mission to a backend. Streams telemetry until completion or abort."""
+            # A host-side geofence check runs BEFORE any backend is reached – the
+            # never-arm-without-a-safe-plan invariant. Fails closed: an out-of-envelope
+            # mission raises UnsafeMissionError and no backend ever sees it.
+            GeofenceSkill().enforce(mission)
+            backend: Backend = get_backend(backend_name)
+            logger.info("orchestrator.fly.start", backend=backend.name, mission=mission.name)
+            await backend.connect(mission)
+            try:
+                async for event in backend.execute(mission):
+                    asyncio.create_task(self.bridge.broadcast_telemetry(event))
+                    yield event
+            finally:
+                await backend.disconnect()
+                logger.info("orchestrator.fly.disconnect", backend=backend.name)
 
-        A host-side geofence check runs BEFORE any backend is reached — the
-        never-arm-without-a-safe-plan invariant. Fails closed: an out-of-envelope
-        mission raises UnsafeMissionError and no backend ever sees it.
-        """
-        GeofenceSkill().enforce(mission)
-        backend: Backend = get_backend(backend_name)
-        logger.info("orchestrator.fly.start", backend=backend.name, mission=mission.name)
-        await backend.connect(mission)
-        try:
-            async for event in backend.execute(mission):
-                yield event
-        finally:
-            await backend.disconnect()
-            logger.info("orchestrator.fly.disconnect", backend=backend.name)
-
-
+    async def handle_incoming_mission(self, mission: Mission) -> None:
+            """Callback to handle missions received over the WebSocket bridge from the browser."""
+            logger.info(f"Executing mission received from browser bridge: {mission.name}")
+            
+            backend_name = "dryrun"
+            async for event in self.fly(mission, backend_name):
+                pass
 def load_mission(path: Path | str) -> Mission:
     """Load a Mission from a JSON file. Useful for replaying or hand-authored plans."""
     p = Path(path)
     return Mission.model_validate_json(p.read_text(encoding="utf-8"))
-
 
 def _mission_tool() -> dict:
     """The Anthropic tool the planner is forced to call.
