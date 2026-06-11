@@ -12,3 +12,10 @@ Before starting, ensure your Ubuntu 24.04 system is fully updated. Open a termin
 
 ```bash
 sudo apt update && sudo apt upgrade -y
+```
+
+Install the core utilities required for the setup:
+
+```bash
+sudo apt install -y git curl gnupg lsb-release python3-pip
+```
