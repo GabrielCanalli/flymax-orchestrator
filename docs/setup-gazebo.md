@@ -19,3 +19,22 @@ Install the core utilities required for the setup:
 ```bash
 sudo apt install -y git curl gnupg lsb-release python3-pip
 ```
+
+---
+
+## Installation Steps
+
+### 1. Install Gazebo Harmonic
+We will use the official Open Source Robotics Foundation (OSRF) repository to install Gazebo Harmonic on Ubuntu 24.04.
+
+```bash
+# Add the OSRF official GPG key
+sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs.osrfoundation.org-keyring.gpg
+
+# Add the stable Gazebo repository to your system sources
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs.osrfoundation.org-keyring.gpg   $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+
+# Update package lists and install Gazebo Harmonic
+sudo apt update
+sudo apt install -y gz-harmonic
+```
