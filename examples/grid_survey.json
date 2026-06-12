@@ -1,0 +1,31 @@
+{
+  "name": "grid-survey",
+  "description": "Demonstration of a simple grid survey pattern at a fixed altitude.",
+  "fleet": [
+    { "id": "px01", "callsign": "Survey-1" }
+  ],
+  "legs": [
+    {
+      "drone_ids": ["px01"],
+      "formation": "solo",
+      "timeout_s": 300.0,
+      "on_failure": "rtl",
+      "waypoints": [
+        { "position": { "x": 0.0, "y": 0.0, "z": 20.0 }, "speed_mps": 5.0 },
+        { "position": { "x": 50.0, "y": 0.0, "z": 20.0 }, "speed_mps": 5.0 },
+        { "position": { "x": 50.0, "y": 50.0, "z": 20.0 }, "speed_mps": 5.0 },
+        { "position": { "x": 0.0, "y": 50.0, "z": 20.0 }, "speed_mps": 5.0 },
+        { "position": { "x": 0.0, "y": 0.0, "z": 20.0 }, "speed_mps": 5.0 }
+      ]
+    }
+  ],
+  "safety": {
+    "max_altitude_m": 30.0,
+    "geofence_min": { "x": -10.0, "y": -10.0, "z": 0.0 },
+    "geofence_max": { "x": 60.0, "y": 60.0, "z": 30.0 },
+    "max_speed_mps": 8.0,
+    "low_battery_pct": 25.0,
+    "emergency_land_keyword": "ABORT"
+  },
+  "metadata": { "use_case": "survey", "outdoor": true, "skill": "survey.lawnmower" }
+}
