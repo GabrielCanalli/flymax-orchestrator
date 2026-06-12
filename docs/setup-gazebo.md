@@ -38,3 +38,17 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs.
 sudo apt update
 sudo apt install -y gz-harmonic
 ```
+
+### 2. Clone and Configure PX4 Autopilot
+​Next, clone the official PX4 repository recursively to include all necessary submodules, and run the automated setup script for Ubuntu.
+
+```bash
+# Clone the PX4 Autopilot repository with its submodules
+git clone [https://github.com/PX4/PX4-Autopilot.git](https://github.com/PX4/PX4-Autopilot.git) --recursive
+
+# Navigate into the repository directory
+cd PX4-Autopilot
+
+# Run the Ubuntu setup script to install additional compilers and simulation dependencies
+bash ./Tools/setup/ubuntu.sh
+```
