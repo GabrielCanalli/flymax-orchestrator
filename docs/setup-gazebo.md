@@ -44,7 +44,7 @@ sudo apt install -y gz-harmonic
 
 ```bash
 # Clone the PX4 Autopilot repository with its submodules
-git clone [https://github.com/PX4/PX4-Autopilot.git](https://github.com/PX4/PX4-Autopilot.git) --recursive
+git clone https://github.com/PX4/PX4-Autopilot.git --recursive
 
 # Navigate into the repository directory
 cd PX4-Autopilot
